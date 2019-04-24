@@ -9,8 +9,11 @@ import java.util.concurrent.Executors;
 import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
 import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.functions.Predicate;
+import io.reactivex.observers.DisposableObserver;
 import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
@@ -126,6 +129,64 @@ public class RxBus {
         }
     }
 
+    public <T>Disposable toObservableWithUI(final Object eventId, Class<T> eventType, final Consumer consumer){
+        synchronized (eventBuffer){
+            Observable<Event> observable = rxBusUI.ofType(Event.class);
+            Log.d(TAG, "buffer length " + eventBuffer.size());
+            final Event event_top = eventBuffer.poll();
+            Log.d(TAG, "buffer length " + eventBuffer.size());
+
+            if (event_top != null)
+            {
+                return (Disposable)observable.observeOn(Schedulers.single())
+                        .subscribeOn(Schedulers.single())
+                        .mergeWith(Observable.create(new ObservableOnSubscribe<Event>() {
+                            @Override
+                            public void subscribe(ObservableEmitter<Event> emitter) throws Exception {
+                                emitter.onNext(event_top);
+                            }
+                        })
+                                .filter(new Predicate<Event>() {
+                                    @Override
+                                    public boolean test(Event event) throws Exception {
+                                        Thread current = Thread.currentThread();
+                                        Log.d(TAG, "buffer filter: thread name " + current.getName());
+                                        return event.event_id == eventId;
+                                    }
+                                }))
+                        .subscribe(consumer);
+            }
+            else
+            {
+                return observable.observeOn(Schedulers.single())
+                        .subscribeOn(Schedulers.single())
+                        .filter(new Predicate<Event>() {
+                            @Override
+                            public boolean test(Event event) throws Exception {
+                                Thread current = Thread.currentThread();
+                                Log.d(TAG, "normal filter: thread name " + current.getName());
+                                synchronized (eventBuffer){
+                                    Log.d(TAG, "buffer lenght in normal fileter " + eventBuffer.size());
+                                }
+                                synchronized (eventBuffer){
+                                    eventBuffer.poll();
+                                }
+                                return event.event_id == eventId;
+                            }
+                        })
+                        .map(new Function<Event, Object>() {
+                            @Override
+                            public Object apply(Event event) throws Exception {
+                                Log.d(TAG, "map: thread name " + Thread.currentThread().getName());
+                                return event.message;
+                            }
+                        })
+                        .cast(eventType)
+                        .subscribe(consumer);
+            }
+        }
+    }
+
     public <T>Observable<T> toObservableWithData(final Object eventId, Class<T> eventType)
     {
         return rxBusData.ofType(Event.class)
@@ -147,6 +208,30 @@ public class RxBus {
                     }
                 })
                 .cast(eventType);
+    }
+
+    public <T>Disposable toObservableWithData(final Object eventId, Class<T> eventType, final Consumer consumer)
+    {
+        return rxBusData.ofType(Event.class)
+                .subscribeOn(Schedulers.from(rxBusEs))
+                .observeOn(Schedulers.from(rxBusEs))
+                .filter(new Predicate<Event>() {
+                    @Override
+                    public boolean test(Event event) throws Exception {
+                        Thread current = Thread.currentThread();
+                        Log.d(TAG, "filter: thread name " + current.getName());
+                        return event.event_id == eventId;
+                    }
+                })
+                .map(new Function<Event, Object>() {
+                    @Override
+                    public Object apply(Event event) throws Exception {
+                        Log.d(TAG, "map: thread name " + Thread.currentThread().getName());
+                        return event.message;
+                    }
+                })
+                .cast(eventType)
+                .subscribe(consumer);
     }
 
     public <T>Observable<T> toObservableWithNotice(final Object eventId, Class<T> eventType)
@@ -171,6 +256,53 @@ public class RxBus {
                 })
                 .cast(eventType);
     }
+
+
+    public <T>Disposable toObservableWithNotice(final Object eventId, Class<T> eventType, final Consumer consumer)
+    {
+        return rxBusNotice.ofType(Event.class)
+                .observeOn(Schedulers.computation())
+                .subscribeOn(Schedulers.computation())
+                .filter(new Predicate<Event>() {
+                    @Override
+                    public boolean test(Event event) throws Exception {
+                        Thread current = Thread.currentThread();
+                        Log.d(TAG, "filter: thread name " + current.getName());
+                        return event.event_id == eventId;
+                    }
+                })
+                .map(new Function<Event, Object>() {
+                    @Override
+                    public Object apply(Event event) throws Exception {
+                        Log.d(TAG, "map: thread name " + Thread.currentThread().getName());
+                        return event.message;
+                    }
+                })
+                .cast(eventType)
+                .subscribe(consumer);
+    }
+
+    public <T> void disposableObservable(Observable<T> observable)
+    {
+        observable.subscribeWith(new DisposableObserver<T>() {
+            @Override
+            public void onNext(T t) {
+                dispose();
+                Log.d("RxBUS", "dispose observer");
+            }
+
+            @Override
+            public void onComplete() {
+
+            }
+
+            @Override
+            public void onError(Throwable e) {
+
+            }
+        }).dispose();
+    }
+
 
     private void postEvent(Event event)
     {
