@@ -39,6 +39,24 @@ class TestUseObservableK constructor() {
             }
         })
 
+        observable?.subscribeWith<Observer<Any>>(object : Observer<Any> {
+            override fun onSubscribe(d: Disposable) {
+                composite += d
+                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+            override fun onComplete() {
+                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun onError(e: Throwable) {
+                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun onNext(t: Any) {
+                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+        })
+
         composite += observable?.subscribe(object : Consumer<Any> {
             override fun accept(t: Any?) {
                 TODO("not implemented") //To change body of created functions use File | Settings | File Templates.

@@ -40,6 +40,27 @@ public class TestUseObservableJ {
 
             }
         });
+        observable.subscribeWith(new Observer() {
+            @Override
+            public void onSubscribe(Disposable d) {
+                compositeDisposable.add(d);
+            }
+
+            @Override
+            public void onNext(Object o) {
+
+            }
+
+            @Override
+            public void onError(Throwable e) {
+
+            }
+
+            @Override
+            public void onComplete() {
+
+            }
+        });
 
         compositeDisposable.add(observable.subscribe(new Consumer() {
             @Override
