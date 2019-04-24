@@ -10,9 +10,11 @@ import io.reactivex.functions.Consumer;
 public class TestUseObservableJ {
     private Observable          observable;
     private CompositeDisposable compositeDisposable;
+    private Disposable disposable;
 
     public TestUseObservableJ(){
         observable = RxBus.getDefault().toObservableWithUI("obs", String.class);
+        compositeDisposable = new CompositeDisposable();
     }
 
     public void startObserve()
@@ -20,7 +22,7 @@ public class TestUseObservableJ {
         observable.subscribeWith(new Observer() {
             @Override
             public void onSubscribe(Disposable d) {
-
+                disposable = d;
             }
 
             @Override
@@ -39,17 +41,34 @@ public class TestUseObservableJ {
             }
         });
 
-        observable.subscribe(new Consumer() {
+        compositeDisposable.add(observable.subscribe(new Consumer() {
             @Override
             public void accept(Object o) throws Exception {
 
             }
-        });
+        }));
+
+        compositeDisposable.add(observable.subscribe(new Consumer() {
+            @Override
+            public void accept(Object o) throws Exception {
+
+            }
+        }));
+
+        compositeDisposable.add(RxBus.getDefault().toObservableWithData("obs", String.class).subscribe(new Consumer<String>() {
+            @Override
+            public void accept(String s) throws Exception {
+
+            }
+        }));
     }
 
-    public void onDestory()
+    public void onDestroy()
     {
-        if (observable != null)
-            RxBus.getDefault().disposableObservable(observable);
+        if (compositeDisposable != null)
+            compositeDisposable.dispose();
+
+        if (disposable != null)
+            disposable.dispose();
     }
 }

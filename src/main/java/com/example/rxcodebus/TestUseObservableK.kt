@@ -9,6 +9,7 @@ import io.reactivex.functions.Consumer
 class TestUseObservableK constructor() {
     private var observable: Observable<*>? = null
     private val composite = CompositeDisposable()
+    private var disposable : Disposable? = null
 
     operator fun CompositeDisposable.plusAssign(disposable: Disposable?){
         if (disposable != null)
@@ -22,6 +23,7 @@ class TestUseObservableK constructor() {
     fun startObserve(){
         observable?.subscribeWith<Observer<Any>>(object : Observer<Any> {
             override fun onSubscribe(d: Disposable) {
+                disposable = d
                 TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
             }
             override fun onComplete() {
@@ -42,9 +44,22 @@ class TestUseObservableK constructor() {
                 TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
             }
         })
+
+        composite += observable?.subscribe(object : Consumer<Any> {
+            override fun accept(t: Any?) {
+                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+        })
+
+        composite += RxBusKt.default.toObservableWithData("obs", String::class.java).subscribe(object : Consumer<Any> {
+            override fun accept(t: Any?) {
+                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+        })
     }
 
-    fun onDestory(){
-        RxBusKt.default.disposeObservable(observable)
+    fun onDestroy(){
+        composite.dispose()
+        disposable?.dispose()
     }
 }

@@ -136,6 +136,48 @@ class RxBusKt private constructor() {
         }
     }
 
+    fun <T> toObservableWithUI(eventId: Any, eventType: Class<T>, consumerNext: Consumer<T>, consumerError: Consumer<Throwable>): Disposable {
+        synchronized(eventBuffer) {
+            val observable = rxBusUI.ofType<Event>(Event::class.java!!)
+            Log.d(TAG, "buffer length " + eventBuffer.size)
+            val event_top = eventBuffer.poll()
+            Log.d(TAG, "buffer length " + eventBuffer.size)
+
+            return if (event_top != null) {
+                observable.observeOn(Schedulers.single())
+                        .subscribeOn(Schedulers.single())
+                        .mergeWith(Observable.create(ObservableOnSubscribe<Event> { emitter -> emitter.onNext(event_top) })
+                                .filter { event ->
+                                    val current = Thread.currentThread()
+                                    Log.d(TAG, "buffer filter: thread name " + current.name)
+                                    event.event_id === eventId
+                                })
+                        .cast(eventType)
+                        .subscribe(consumerNext, consumerError) as Disposable
+            } else {
+                observable.observeOn(Schedulers.single())
+                        .subscribeOn(Schedulers.single())
+                        .filter { event ->
+                            val current = Thread.currentThread()
+                            Log.d(TAG, "normal filter: thread name " + current.name)
+                            synchronized(eventBuffer) {
+                                Log.d(TAG, "buffer lenght in normal fileter " + eventBuffer.size)
+                            }
+                            synchronized(eventBuffer) {
+                                eventBuffer.poll()
+                            }
+                            event.event_id === eventId
+                        }
+                        .map { event ->
+                            Log.d(TAG, "map: thread name " + Thread.currentThread().name)
+                            event.message
+                        }
+                        .cast(eventType)
+                        .subscribe(consumerNext, consumerError)
+            }
+        }
+    }
+
     fun <T> toObservableWithData(eventId: Any, eventType: Class<T>): Observable<T> {
         return rxBusData.ofType<Event>(Event::class.java!!)
                 .subscribeOn(Schedulers.from(rxBusEs))
@@ -150,6 +192,23 @@ class RxBusKt private constructor() {
                     event.message
                 }
                 .cast(eventType)
+    }
+
+    fun <T> toObservableWithData(eventId: Any, eventType: Class<T>, consumerNext: Consumer<T>, consumerError: Consumer<Throwable>): Disposable {
+        return rxBusData.ofType<Event>(Event::class.java)
+                .subscribeOn(Schedulers.from(rxBusEs))
+                .observeOn(Schedulers.from(rxBusEs))
+                .filter { event ->
+                    val current = Thread.currentThread()
+                    Log.d(TAG, "filter: thread name " + current.name)
+                    event.event_id === eventId
+                }
+                .map { event ->
+                    Log.d(TAG, "map: thread name " + Thread.currentThread().name)
+                    event.message
+                }
+                .cast(eventType)
+                .subscribe(consumerNext, consumerError)
     }
 
     fun <T> toObservableWithData(eventId: Any, eventType: Class<T>, consumer: Consumer<T>): Disposable {
@@ -203,23 +262,22 @@ class RxBusKt private constructor() {
                 .subscribe(consumer)
     }
 
-    fun <T> disposeObservable(observable : Observable<T>?)
-    {
-        observable?.subscribeWith<Observer<in T>>(object : DisposableObserver<T>() {
-            override fun onComplete() {
-                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-            }
 
-            override fun onError(e: Throwable) {
-                dispose()
-                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-            }
-
-            override fun onNext(t: T) {
-                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-            }
-
-        })
+    fun <T> toObservableWithNotice(eventId: Any, eventType: Class<T>, consumerNext: Consumer<T>, consumerError: Consumer<Throwable>): Disposable {
+        return rxBusNotice.ofType<Event>(Event::class.java!!)
+                .observeOn(Schedulers.computation())
+                .subscribeOn(Schedulers.computation())
+                .filter { event ->
+                    val current = Thread.currentThread()
+                    Log.d(TAG, "filter: thread name " + current.name)
+                    event.event_id === eventId
+                }
+                .map { event ->
+                    Log.d(TAG, "map: thread name " + Thread.currentThread().name)
+                    event.message
+                }
+                .cast(eventType)
+                .subscribe(consumerNext, consumerError)
     }
 
 
