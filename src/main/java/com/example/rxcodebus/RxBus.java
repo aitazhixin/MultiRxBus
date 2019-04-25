@@ -5,10 +5,12 @@ import android.util.Log;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
 import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.ObservableSource;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
@@ -247,6 +249,126 @@ public class RxBus {
         }
     }
 
+    public <T>Observable<T> toObservableWithUIWithinTimeout(final Object eventId, Class<T> eventType, long timeinterval, TimeUnit unit){
+        synchronized (eventBuffer){
+            Observable<Event> observable = rxBusUI.ofType(Event.class);
+            Log.d(TAG, "buffer length " + eventBuffer.size());
+            final Event event_top = eventBuffer.poll();
+            Log.d(TAG, "buffer length " + eventBuffer.size());
+
+            if (event_top != null)
+            {
+                return (Observable<T>)observable.observeOn(Schedulers.single())
+                        .subscribeOn(Schedulers.single())
+                        .timeout(timeinterval, unit)
+                        .mergeWith(Observable.create(new ObservableOnSubscribe<Event>() {
+                            @Override
+                            public void subscribe(ObservableEmitter<Event> emitter) throws Exception {
+                                emitter.onNext(event_top);
+                            }
+                        })
+                                .filter(new Predicate<Event>() {
+                                    @Override
+                                    public boolean test(Event event) throws Exception {
+                                        Thread current = Thread.currentThread();
+                                        Log.d(TAG, "buffer filter: thread name " + current.getName());
+                                        return event.event_id == eventId;
+                                    }
+                                }));
+            }
+            else
+            {
+                return observable.observeOn(Schedulers.single())
+                        .subscribeOn(Schedulers.single())
+                        .timeout(timeinterval, unit)
+                        .filter(new Predicate<Event>() {
+                            @Override
+                            public boolean test(Event event) throws Exception {
+                                Thread current = Thread.currentThread();
+                                Log.d(TAG, "normal filter: thread name " + current.getName());
+                                synchronized (eventBuffer){
+                                    Log.d(TAG, "buffer lenght in normal fileter " + eventBuffer.size());
+                                }
+                                synchronized (eventBuffer){
+                                    eventBuffer.poll();
+                                }
+                                return event.event_id == eventId;
+                            }
+                        })
+                        .map(new Function<Event, Object>() {
+                            @Override
+                            public Object apply(Event event) throws Exception {
+                                Log.d(TAG, "map: thread name " + Thread.currentThread().getName());
+                                return event.message;
+                            }
+                        })
+                        .cast(eventType);
+            }
+        }
+    }
+
+    public <T>Disposable toObservableWithUIWithinTimeout(final Object eventId, Class<T> eventType, final Consumer consumerNext /*onNext*/,
+                                            final Consumer consumerError /*onError*/, long timeinterval, TimeUnit unit)
+    {
+        synchronized (eventBuffer){
+            Observable<Event> observable = rxBusUI.ofType(Event.class);
+            Log.d(TAG, "buffer length " + eventBuffer.size());
+            final Event event_top = eventBuffer.poll();
+            Log.d(TAG, "buffer length " + eventBuffer.size());
+
+            if (event_top != null)
+            {
+                return (Disposable)observable.observeOn(Schedulers.single())
+                        .subscribeOn(Schedulers.single())
+                        .timeout(timeinterval, unit)
+                        .mergeWith(Observable.create(new ObservableOnSubscribe<Event>() {
+                            @Override
+                            public void subscribe(ObservableEmitter<Event> emitter) throws Exception {
+                                emitter.onNext(event_top);
+                            }
+                        })
+                                .filter(new Predicate<Event>() {
+                                    @Override
+                                    public boolean test(Event event) throws Exception {
+                                        Thread current = Thread.currentThread();
+                                        Log.d(TAG, "buffer filter: thread name " + current.getName());
+                                        return event.event_id == eventId;
+                                    }
+                                }))
+                        .subscribe(consumerNext, consumerError);
+            }
+            else
+            {
+                return observable.observeOn(Schedulers.single())
+                        .subscribeOn(Schedulers.single())
+                        .timeout(timeinterval, unit)
+                        .filter(new Predicate<Event>() {
+                            @Override
+                            public boolean test(Event event) throws Exception {
+                                Thread current = Thread.currentThread();
+                                Log.d(TAG, "normal filter: thread name " + current.getName());
+                                synchronized (eventBuffer){
+                                    Log.d(TAG, "buffer lenght in normal fileter " + eventBuffer.size());
+                                }
+                                synchronized (eventBuffer){
+                                    eventBuffer.poll();
+                                }
+                                return event.event_id == eventId;
+                            }
+                        })
+                        .map(new Function<Event, Object>() {
+                            @Override
+                            public Object apply(Event event) throws Exception {
+                                Log.d(TAG, "map: thread name " + Thread.currentThread().getName());
+                                return event.message;
+                            }
+                        })
+                        .cast(eventType)
+                        .subscribe(consumerNext, consumerError);
+            }
+        }
+    }
+
     public <T>Observable<T> toObservableWithData(final Object eventId, Class<T> eventType)
     {
         return rxBusData.ofType(Event.class)
@@ -300,6 +422,56 @@ public class RxBus {
         return rxBusData.ofType(Event.class)
                 .subscribeOn(Schedulers.from(rxBusEs))
                 .observeOn(Schedulers.from(rxBusEs))
+                .filter(new Predicate<Event>() {
+                    @Override
+                    public boolean test(Event event) throws Exception {
+                        Thread current = Thread.currentThread();
+                        Log.d(TAG, "filter: thread name " + current.getName());
+                        return event.event_id == eventId;
+                    }
+                })
+                .map(new Function<Event, Object>() {
+                    @Override
+                    public Object apply(Event event) throws Exception {
+                        Log.d(TAG, "map: thread name " + Thread.currentThread().getName());
+                        return event.message;
+                    }
+                })
+                .cast(eventType)
+                .subscribe(consumerNext, consumerError);
+    }
+
+    public <T>Observable<T> toObservableWithDataWithinTimeout(final Object eventId, Class<T> eventType, long timeinterval, TimeUnit unit)
+    {
+        return rxBusData.ofType(Event.class)
+                .subscribeOn(Schedulers.from(rxBusEs))
+                .observeOn(Schedulers.from(rxBusEs))
+                .timeout(timeinterval, unit)
+                .filter(new Predicate<Event>() {
+                    @Override
+                    public boolean test(Event event) throws Exception {
+                        Thread current = Thread.currentThread();
+                        Log.d(TAG, "filter: thread name " + current.getName());
+                        return event.event_id == eventId;
+                    }
+                })
+                .map(new Function<Event, Object>() {
+                    @Override
+                    public Object apply(Event event) throws Exception {
+                        Log.d(TAG, "map: thread name " + Thread.currentThread().getName());
+                        return event.message;
+                    }
+                })
+                .cast(eventType);
+    }
+
+    public <T>Disposable toObservableWithDataWithinTimeout(final Object eventId, Class<T> eventType, final Consumer consumerNext /*onNext*/,
+                                              final Consumer consumerError /*onError*/, long timeinterval, TimeUnit unit)
+    {
+        return rxBusData.ofType(Event.class)
+                .subscribeOn(Schedulers.from(rxBusEs))
+                .observeOn(Schedulers.from(rxBusEs))
+                .timeout(timeinterval, unit)
                 .filter(new Predicate<Event>() {
                     @Override
                     public boolean test(Event event) throws Exception {
@@ -374,6 +546,57 @@ public class RxBus {
         return rxBusNotice.ofType(Event.class)
                 .observeOn(Schedulers.computation())
                 .subscribeOn(Schedulers.computation())
+                .filter(new Predicate<Event>() {
+                    @Override
+                    public boolean test(Event event) throws Exception {
+                        Thread current = Thread.currentThread();
+                        Log.d(TAG, "filter: thread name " + current.getName());
+                        return event.event_id == eventId;
+                    }
+                })
+                .map(new Function<Event, Object>() {
+                    @Override
+                    public Object apply(Event event) throws Exception {
+                        Log.d(TAG, "map: thread name " + Thread.currentThread().getName());
+                        return event.message;
+                    }
+                })
+                .cast(eventType)
+                .subscribe(consumerNext, consumerError);
+    }
+
+    public <T>Observable<T> toObservableWithNoticeWithinTimeout(final Object eventId, Class<T> eventType, long timeinterval, TimeUnit unit)
+    {
+        return rxBusNotice.ofType(Event.class)
+                .observeOn(Schedulers.computation())
+                .subscribeOn(Schedulers.computation())
+                .timeout(timeinterval, unit)
+                .filter(new Predicate<Event>() {
+                    @Override
+                    public boolean test(Event event) throws Exception {
+                        Thread current = Thread.currentThread();
+                        Log.d(TAG, "filter: thread name " + current.getName());
+                        return event.event_id == eventId;
+                    }
+                })
+                .map(new Function<Event, Object>() {
+                    @Override
+                    public Object apply(Event event) throws Exception {
+                        Log.d(TAG, "map: thread name " + Thread.currentThread().getName());
+                        return event.message;
+                    }
+                })
+                .cast(eventType);
+    }
+
+
+    public <T>Disposable toObservableWithNoticeWithinTimeout(final Object eventId, Class<T> eventType, final Consumer consumerNext /*onNext*/,
+                                                final Consumer consumerError /*onError*/, long timeinterval, TimeUnit unit)
+    {
+        return rxBusNotice.ofType(Event.class)
+                .observeOn(Schedulers.computation())
+                .subscribeOn(Schedulers.computation())
+                .timeout(timeinterval, unit)
                 .filter(new Predicate<Event>() {
                     @Override
                     public boolean test(Event event) throws Exception {

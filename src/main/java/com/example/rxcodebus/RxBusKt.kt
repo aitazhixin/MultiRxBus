@@ -14,6 +14,7 @@ import io.reactivex.subjects.Subject
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class RxBusKt private constructor() {
     private val TAG = "RxBUS"
@@ -178,6 +179,92 @@ class RxBusKt private constructor() {
         }
     }
 
+
+    fun <T> toObservableWithUIWithinTimeout(eventId: Any, eventType: Class<T>, timeinterval: Long, unit: TimeUnit): Observable<T> {
+        synchronized(eventBuffer) {
+            val observable = rxBusUI.ofType<Event>(Event::class.java!!)
+            Log.d(TAG, "buffer length " + eventBuffer.size)
+            val event_top = eventBuffer.poll()
+            Log.d(TAG, "buffer length " + eventBuffer.size)
+
+            return if (event_top != null) {
+                observable.observeOn(Schedulers.single())
+                        .subscribeOn(Schedulers.single())
+                        .timeout(timeinterval, unit)
+                        .mergeWith(Observable.create(ObservableOnSubscribe<Event> { emitter -> emitter.onNext(event_top) })
+                                .filter { event ->
+                                    val current = Thread.currentThread()
+                                    Log.d(TAG, "buffer filter: thread name " + current.name)
+                                    event.event_id === eventId
+                                }) as Observable<T>
+            } else {
+                observable.observeOn(Schedulers.single())
+                        .subscribeOn(Schedulers.single())
+                        .timeout(timeinterval, unit)
+                        .filter { event ->
+                            val current = Thread.currentThread()
+                            Log.d(TAG, "normal filter: thread name " + current.name)
+                            synchronized(eventBuffer) {
+                                Log.d(TAG, "buffer lenght in normal fileter " + eventBuffer.size)
+                            }
+                            synchronized(eventBuffer) {
+                                eventBuffer.poll()
+                            }
+                            event.event_id === eventId
+                        }
+                        .map { event ->
+                            Log.d(TAG, "map: thread name " + Thread.currentThread().name)
+                            event.message
+                        }
+                        .cast(eventType)
+            }
+        }
+    }
+
+    fun <T> toObservableWithUIWithinTimeout(eventId: Any, eventType: Class<T>, consumerNext: Consumer<T>, consumerError: Consumer<Throwable>, timeinterval: Long, unit: TimeUnit): Disposable {
+        synchronized(eventBuffer) {
+            val observable = rxBusUI.ofType<Event>(Event::class.java!!)
+            Log.d(TAG, "buffer length " + eventBuffer.size)
+            val event_top = eventBuffer.poll()
+            Log.d(TAG, "buffer length " + eventBuffer.size)
+
+            return if (event_top != null) {
+                observable.observeOn(Schedulers.single())
+                        .subscribeOn(Schedulers.single())
+                        .timeout(timeinterval, unit)
+                        .mergeWith(Observable.create(ObservableOnSubscribe<Event> { emitter -> emitter.onNext(event_top) })
+                                .filter { event ->
+                                    val current = Thread.currentThread()
+                                    Log.d(TAG, "buffer filter: thread name " + current.name)
+                                    event.event_id === eventId
+                                })
+                        .cast(eventType)
+                        .subscribe(consumerNext, consumerError) as Disposable
+            } else {
+                observable.observeOn(Schedulers.single())
+                        .subscribeOn(Schedulers.single())
+                        .timeout(timeinterval, unit)
+                        .filter { event ->
+                            val current = Thread.currentThread()
+                            Log.d(TAG, "normal filter: thread name " + current.name)
+                            synchronized(eventBuffer) {
+                                Log.d(TAG, "buffer lenght in normal fileter " + eventBuffer.size)
+                            }
+                            synchronized(eventBuffer) {
+                                eventBuffer.poll()
+                            }
+                            event.event_id === eventId
+                        }
+                        .map { event ->
+                            Log.d(TAG, "map: thread name " + Thread.currentThread().name)
+                            event.message
+                        }
+                        .cast(eventType)
+                        .subscribe(consumerNext, consumerError)
+            }
+        }
+    }
+
     fun <T> toObservableWithData(eventId: Any, eventType: Class<T>): Observable<T> {
         return rxBusData.ofType<Event>(Event::class.java!!)
                 .subscribeOn(Schedulers.from(rxBusEs))
@@ -192,6 +279,23 @@ class RxBusKt private constructor() {
                     event.message
                 }
                 .cast(eventType)
+    }
+
+    fun <T> toObservableWithData(eventId: Any, eventType: Class<T>, consumer: Consumer<T>): Disposable {
+        return rxBusData.ofType<Event>(Event::class.java)
+                .subscribeOn(Schedulers.from(rxBusEs))
+                .observeOn(Schedulers.from(rxBusEs))
+                .filter { event ->
+                    val current = Thread.currentThread()
+                    Log.d(TAG, "filter: thread name " + current.name)
+                    event.event_id === eventId
+                }
+                .map { event ->
+                    Log.d(TAG, "map: thread name " + Thread.currentThread().name)
+                    event.message
+                }
+                .cast(eventType)
+                .subscribe(consumer)
     }
 
     fun <T> toObservableWithData(eventId: Any, eventType: Class<T>, consumerNext: Consumer<T>, consumerError: Consumer<Throwable>): Disposable {
@@ -211,10 +315,11 @@ class RxBusKt private constructor() {
                 .subscribe(consumerNext, consumerError)
     }
 
-    fun <T> toObservableWithData(eventId: Any, eventType: Class<T>, consumer: Consumer<T>): Disposable {
-        return rxBusData.ofType<Event>(Event::class.java)
+    fun <T> toObservableWithDataWithinTimeout(eventId: Any, eventType: Class<T>, timeinterval: Long, unit: TimeUnit): Observable<T> {
+        return rxBusData.ofType<Event>(Event::class.java!!)
                 .subscribeOn(Schedulers.from(rxBusEs))
                 .observeOn(Schedulers.from(rxBusEs))
+                .timeout(timeinterval, unit)
                 .filter { event ->
                     val current = Thread.currentThread()
                     Log.d(TAG, "filter: thread name " + current.name)
@@ -225,7 +330,24 @@ class RxBusKt private constructor() {
                     event.message
                 }
                 .cast(eventType)
-                .subscribe(consumer)
+    }
+
+    fun <T> toObservableWithDataWithinTimeout(eventId: Any, eventType: Class<T>, consumerNext: Consumer<T>, consumerError: Consumer<Throwable>, timeinterval: Long, unit: TimeUnit): Disposable {
+        return rxBusData.ofType<Event>(Event::class.java)
+                .subscribeOn(Schedulers.from(rxBusEs))
+                .observeOn(Schedulers.from(rxBusEs))
+                .timeout(timeinterval, unit)
+                .filter { event ->
+                    val current = Thread.currentThread()
+                    Log.d(TAG, "filter: thread name " + current.name)
+                    event.event_id === eventId
+                }
+                .map { event ->
+                    Log.d(TAG, "map: thread name " + Thread.currentThread().name)
+                    event.message
+                }
+                .cast(eventType)
+                .subscribe(consumerNext, consumerError)
     }
 
     fun <T> toObservableWithNotice(eventId: Any, eventType: Class<T>): Observable<T> {
@@ -267,6 +389,42 @@ class RxBusKt private constructor() {
         return rxBusNotice.ofType<Event>(Event::class.java!!)
                 .observeOn(Schedulers.computation())
                 .subscribeOn(Schedulers.computation())
+                .filter { event ->
+                    val current = Thread.currentThread()
+                    Log.d(TAG, "filter: thread name " + current.name)
+                    event.event_id === eventId
+                }
+                .map { event ->
+                    Log.d(TAG, "map: thread name " + Thread.currentThread().name)
+                    event.message
+                }
+                .cast(eventType)
+                .subscribe(consumerNext, consumerError)
+    }
+
+    fun <T> toObservableWithNoticeWithinTimeout(eventId: Any, eventType: Class<T>, timeinterval: Long, unit: TimeUnit): Observable<T> {
+        return rxBusNotice.ofType<Event>(Event::class.java!!)
+                .observeOn(Schedulers.computation())
+                .subscribeOn(Schedulers.computation())
+                .timeout(timeinterval, unit)
+                .filter { event ->
+                    val current = Thread.currentThread()
+                    Log.d(TAG, "filter: thread name " + current.name)
+                    event.event_id === eventId
+                }
+                .map { event ->
+                    Log.d(TAG, "map: thread name " + Thread.currentThread().name)
+                    event.message
+                }
+                .cast(eventType)
+    }
+
+
+    fun <T> toObservableWithNoticeWithinTimeout(eventId: Any, eventType: Class<T>, consumerNext: Consumer<T>, consumerError: Consumer<Throwable>, timeinterval: Long, unit: TimeUnit): Disposable {
+        return rxBusNotice.ofType<Event>(Event::class.java!!)
+                .observeOn(Schedulers.computation())
+                .subscribeOn(Schedulers.computation())
+                .timeout(timeinterval, unit)
                 .filter { event ->
                     val current = Thread.currentThread()
                     Log.d(TAG, "filter: thread name " + current.name)

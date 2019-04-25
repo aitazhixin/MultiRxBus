@@ -10,6 +10,8 @@ import android.view.MenuItem;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import java.util.concurrent.TimeUnit;
+
 import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
 import io.reactivex.ObservableOnSubscribe;
@@ -19,6 +21,7 @@ import io.reactivex.functions.Cancellable;
 import io.reactivex.functions.Consumer;
 
 public class MainActivity extends AppCompatActivity implements RxSubscription {
+    private final String TAG = "RxBUS";
 
     private Disposable disposable;
     private Observable observable;
@@ -84,7 +87,7 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
 //
 //                    @Override
 //                    public void onNext(Object o) {
-//                        Log.d("RxBUS", "subscribe test");
+//                        Log.d(TAG, "subscribe test");
 //                    }
 //
 //                    @Override
@@ -109,7 +112,7 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
 //            @Override
 //            public void subscribe(ObservableEmitter emitter) throws Exception {
 //                emitter.onNext("test");
-//                Log.d("RxBUS", "observableOnSubscribe subscribe called");
+//                Log.d(TAG, "observableOnSubscribe subscribe called");
 //            }
 //        };
 
@@ -123,7 +126,7 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
 //
 //            @Override
 //            public void onNext(Object o) {
-//                Log.d("RxBUS", "loc test: " + (String)o);
+//                Log.d(TAG, "loc test: " + (String)o);
 //            }
 //
 //            @Override
@@ -166,7 +169,7 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
 //
 //            @Override
 //            public void onNext(Object value) {
-//                Log.d("RxBUS", "ObservableEmitter onNext: send " + (String)value);
+//                Log.d(TAG, "ObservableEmitter onNext: send " + (String)value);
 //            }
 //
 //            @Override
@@ -186,7 +189,7 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
 //        catch (Exception e)
 //        {
 //            e.printStackTrace();
-//            Log.e("RxBUS", "observableOnSubscribe.subscribe(emitter) exception");
+//            Log.e(TAG, "observableOnSubscribe.subscribe(emitter) exception");
 //        }
 
         startSubscribe((byte)0x02, String.class);
@@ -235,33 +238,69 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
         disposable = observable.subscribe(new Consumer() {
                     @Override
                     public void accept(Object o) throws Exception {
-                        Log.d("RxBUS", "Consumer test");
+                        Log.d(TAG, "Consumer test");
                     }
                 });
 
         observable.subscribe(new Consumer() {
             @Override
             public void accept(Object o) throws Exception {
-                Log.d("RxBUS", "Consumer test new ");
+                Log.d(TAG, "Consumer test new ");
             }
         });
 
         observable.subscribe(new Consumer() {
             @Override
             public void accept(Object o) throws Exception {
-                Log.d("RxBUS", "Consumer test renew");
+                Log.d(TAG, "Consumer test renew");
             }
         });
 
-        RxBus.getDefault().disposableObservable(observable);
         disposable.dispose();
 
 //        RxBus.getDefault().toObservableWithNotice(event_id, event_type, new Consumer() {
 //            @Override
 //            public void accept(Object o) throws Exception {
-//                Log.d("RxBUS", "Consumer Interface");
+//                Log.d(TAG, "Consumer Interface");
 //            }
 //        });
+        RxBus.getDefault().toObservableWithNoticeWithinTimeout(event_id, event_type, 3500, TimeUnit.MILLISECONDS)
+                .subscribeWith(new Observer() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+                        Log.d(TAG, "with timeout: subscribe");
+                    }
+
+                    @Override
+                    public void onNext(Object o) {
+                        Log.d(TAG, "with timeout: next");
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Log.e(TAG, "with timeout: error");
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        Log.d(TAG, "with timeout: complete");
+                    }
+                });
+
+        RxBus.getDefault().toObservableWithNoticeWithinTimeout(event_id, event_type, new Consumer() {
+                    @Override
+                    public void accept(Object o) throws Exception {
+                        Log.d(TAG, "accept next in timeout");
+                    }
+                },
+                new Consumer() {
+                    @Override
+                    public void accept(Object o) throws Exception {
+                        Log.e(TAG, "accept error timeout");
+                    }
+                },
+                3000,
+                TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -272,7 +311,7 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
     @Override
     public void parse(Object event_id, Object msg) {
         Thread current = Thread.currentThread();
-        Log.d("RxBUS", "thread id " + current.getId() + " name " + current.getName() + " priority " + current.getPriority());
+        Log.d(TAG, "thread id " + current.getId() + " name " + current.getName() + " priority " + current.getPriority());
         if ((byte)event_id == (byte)0x01) {
             texter.setText((String) msg);
         }
