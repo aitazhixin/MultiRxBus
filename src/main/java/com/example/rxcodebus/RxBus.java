@@ -2,20 +2,22 @@ package com.example.rxcodebus;
 
 import android.util.Log;
 
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
 import io.reactivex.ObservableOnSubscribe;
-import io.reactivex.ObservableSource;
+import io.reactivex.Observer;
+import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.functions.Predicate;
-import io.reactivex.observers.DisposableObserver;
 import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
@@ -614,6 +616,66 @@ public class RxBus {
                 })
                 .cast(eventType)
                 .subscribe(consumerNext, consumerError);
+    }
+
+    CompositeDisposable compositeDisposable = new CompositeDisposable();
+    public <T> T toObservableWithBlocking(final Object eventId, Class<T> eventType, long timeinterval)
+    {
+        final BlockingQueue<Object> queue = new LinkedBlockingQueue<Object>();
+        rxBusNotice.ofType(Event.class)
+                .observeOn(Schedulers.computation())
+                .subscribeOn(Schedulers.computation())
+                .timeout(timeinterval, TimeUnit.MILLISECONDS)
+                .filter(new Predicate<Event>() {
+                    @Override
+                    public boolean test(Event event) throws Exception {
+                        Thread current = Thread.currentThread();
+                        Log.d(TAG, "filter: thread name " + current.getName());
+                        return event.event_id == eventId;
+                    }
+                })
+                .map(new Function<Event, Object>() {
+                    @Override
+                    public Object apply(Event event) throws Exception {
+                        Log.d(TAG, "map: thread name " + Thread.currentThread().getName());
+                        return event.message;
+                    }
+                })
+                .cast(eventType)
+                .subscribeWith(new Observer<T>(){
+                    @Override
+                    public void onSubscribe(Disposable d) {
+                        compositeDisposable.add(d);
+                    }
+
+                    @Override
+                    public void onNext(T t) {
+                        queue.offer(t);
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        queue.offer("error");
+                        Log.e(TAG, "queue offer error");
+                    }
+
+                    @Override
+                    public void onComplete() {
+                    }
+                });
+
+        try {
+            final T ret = (T) queue.take();
+            compositeDisposable.dispose();
+            if ("error".equals(ret))
+                return null;
+            return ret;
+        } catch (Exception e)
+        {
+            Log.e(TAG, "queue exp");
+        }
+
+        return null;
     }
 
 

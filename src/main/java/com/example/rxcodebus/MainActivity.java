@@ -10,21 +10,19 @@ import android.view.MenuItem;
 import android.widget.EditText;
 import android.widget.TextView;
 
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Future;
 
 import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
-import io.reactivex.ObservableOnSubscribe;
-import io.reactivex.Observer;
 import io.reactivex.disposables.Disposable;
-import io.reactivex.functions.Cancellable;
-import io.reactivex.functions.Consumer;
 
 public class MainActivity extends AppCompatActivity implements RxSubscription {
     private final String TAG = "RxBUS";
 
     private Disposable disposable;
     private Observable observable;
+    private ObservableEmitter emitter;
+    private Future future;
 
     private EditText editer;
     private EditText editText;
@@ -79,6 +77,21 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 RxBus.getDefault().broadNotice((byte)0x02, s.toString());
+//                if (observable != null) {
+//                    observable.doOnNext(new Consumer() {
+//                        @Override
+//                        public void accept(Object o) throws Exception {
+//                            emitter.onNext("do on next");
+//                        }
+//                    });
+//
+//                try {
+//                    Log.d(TAG, "Future result " + future.get());
+//                }
+//                catch (Exception e)
+//                {
+//                    Log.e(TAG, "Future exception: " + e.toString());
+//                }
 //                observable.subscribeWith(new Observer() {
 //                    @Override
 //                    public void onSubscribe(Disposable d) {
@@ -100,6 +113,19 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
 //
 //                    }
 //                });
+//                    observable.observeOn(Schedulers.computation())
+//                            .subscribe(new Consumer() {
+//                                                   @Override
+//                                                   public void accept(Object o) throws Exception {
+//                                                       Log.d(TAG, "block next in timeout");
+//                                                   }
+//                                               },
+//                                    new Consumer<Throwable>() {
+//                                        @Override
+//                                        public void accept(Throwable throwable) throws Exception {
+//                                            Log.e(TAG, "block error in timeout: " + throwable.getMessage());
+//                                        }
+//                                    });
             }
 
             @Override
@@ -117,6 +143,8 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
 //        };
 
 //        observable = Observable.create(observableOnSubscribe);
+//        observable = Observable.empty();
+
 //
 //        observable.subscribeWith(new Observer() {
 //            @Override
@@ -141,7 +169,7 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
 //        });
 //
 //
-//        ObservableEmitter emitter = new ObservableEmitter() {
+//        emitter = new ObservableEmitter() {
 //            @Override
 //            public void setDisposable(Disposable d) {
 //
@@ -191,9 +219,17 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
 //            e.printStackTrace();
 //            Log.e(TAG, "observableOnSubscribe.subscribe(emitter) exception");
 //        }
+//
+//        observable.subscribe(new Consumer() {
+//            @Override
+//            public void accept(Object o) throws Exception {
+//                Log.d(TAG, "recv " + o);
+//            }
+//        });
 
-        startSubscribe((byte)0x02, String.class);
+
 //        startSubscribe((byte)0x02, String.class);
+        startSubscribe((byte)0x02, String.class);
 
     }
 
@@ -234,29 +270,29 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
     @Override
     public void startSubscribe(final Object event_id, final Class event_type)
     {
-        observable = RxBus.getDefault().toObservableWithNotice(event_id, event_type);
-        disposable = observable.subscribe(new Consumer() {
-                    @Override
-                    public void accept(Object o) throws Exception {
-                        Log.d(TAG, "Consumer test");
-                    }
-                });
-
-        observable.subscribe(new Consumer() {
-            @Override
-            public void accept(Object o) throws Exception {
-                Log.d(TAG, "Consumer test new ");
-            }
-        });
-
-        observable.subscribe(new Consumer() {
-            @Override
-            public void accept(Object o) throws Exception {
-                Log.d(TAG, "Consumer test renew");
-            }
-        });
-
-        disposable.dispose();
+//        observable = RxBus.getDefault().toObservableWithNotice(event_id, event_type);
+//        disposable = observable.subscribe(new Consumer() {
+//                    @Override
+//                    public void accept(Object o) throws Exception {
+//                        Log.d(TAG, "Consumer test");
+//                    }
+//                });
+//
+//        observable.subscribe(new Consumer() {
+//            @Override
+//            public void accept(Object o) throws Exception {
+//                Log.d(TAG, "Consumer test new ");
+//            }
+//        });
+//
+//        observable.subscribe(new Consumer() {
+//            @Override
+//            public void accept(Object o) throws Exception {
+//                Log.d(TAG, "Consumer test renew");
+//            }
+//        });
+//
+//        disposable.dispose();
 
 //        RxBus.getDefault().toObservableWithNotice(event_id, event_type, new Consumer() {
 //            @Override
@@ -264,43 +300,141 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
 //                Log.d(TAG, "Consumer Interface");
 //            }
 //        });
-        RxBus.getDefault().toObservableWithNoticeWithinTimeout(event_id, event_type, 3500, TimeUnit.MILLISECONDS)
-                .subscribeWith(new Observer() {
-                    @Override
-                    public void onSubscribe(Disposable d) {
-                        Log.d(TAG, "with timeout: subscribe");
-                    }
+//        RxBus.getDefault().toObservableWithNoticeWithinTimeout(event_id, event_type, 3500, TimeUnit.MILLISECONDS)
+//                .subscribeWith(new Observer() {
+//                    @Override
+//                    public void onSubscribe(Disposable d) {
+//                        Log.d(TAG, "with timeout: subscribe");
+//                    }
+//
+//                    @Override
+//                    public void onNext(Object o) {
+//                        Log.d(TAG, "with timeout: next");
+//                    }
+//
+//                    @Override
+//                    public void onError(Throwable e) {
+//                        Log.e(TAG, "with timeout: error");
+//                    }
+//
+//                    @Override
+//                    public void onComplete() {
+//                        Log.d(TAG, "with timeout: complete");
+//                    }
+//                });
 
-                    @Override
-                    public void onNext(Object o) {
-                        Log.d(TAG, "with timeout: next");
-                    }
+//        RxBus.getDefault().toObservableWithNoticeWithinTimeout(event_id, event_type, new Consumer() {
+//                    @Override
+//                    public void accept(Object o) throws Exception {
+//                        Log.d(TAG, "accept next in timeout");
+//                    }
+//                },
+//                new Consumer() {
+//                    @Override
+//                    public void accept(Object o) throws Exception {
+//                        Log.e(TAG, "accept error timeout");
+//                    }
+//                },
+//                3000,
+//                TimeUnit.MILLISECONDS);
 
-                    @Override
-                    public void onError(Throwable e) {
-                        Log.e(TAG, "with timeout: error");
-                    }
+//        future = RxBus.getDefault().toObservableWithFuture(event_id, event_type, new Consumer() {
+//                    @Override
+//                    public void accept(Object o) throws Exception {
+//                        Log.d(TAG, "future next in timeout");
+//                    }
+//                },
+//                new Consumer() {
+//                    @Override
+//                    public void accept(Object o) throws Exception {
+//                        Log.e(TAG, "future error timeout");
+//                    }
+//                },
+//                3000);
+//        Log.d(TAG, "subscribe future");
 
-                    @Override
-                    public void onComplete() {
-                        Log.d(TAG, "with timeout: complete");
-                    }
-                });
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+//                RxBus.getDefault().toObservableWithBlocking(event_id, event_type,
+//                        3000)
+//                        .blockingSubscribe(new Consumer() {
+//                                               @Override
+//                                               public void accept(Object o) throws Exception {
+//                                                   Log.d(TAG, "block next in timeout");
+//                                               }
+//                                           },
+//                                new Consumer<Throwable>() {
+//                                    @Override
+//                                    public void accept(Throwable throwable) throws Exception {
+//                                        Log.e(TAG, "block error in timeout: " + throwable.getMessage());
+//                                    }
+//                                });
+//                Observable ob = RxBus.getDefault().toObservableWithBlocking(event_id, event_type, 3000);
+//                Future future = ob .toFuture();
+//                ob.subscribe(new Consumer() {
+//                                                                   @Override
+//                                               public void accept(Object o) throws Exception {
+//                                                   Log.d(TAG, "block next in timeout");
+//                                               }
+//                                           },
+//                                new Consumer<Throwable>() {
+//                                    @Override
+//                                    public void accept(Throwable throwable) throws Exception {
+//                                        Log.e(TAG, "block error in timeout: " + throwable.getMessage());
+//                                    }
+//                                });
+//                try {
+//                    Log.d(TAG, "future: " + future.get());
+//                }
+//                catch (ExecutionException e)
+//                {
+//                    Log.e(TAG, "future exp: " + e.getMessage());
+//                }
+//                catch (InterruptedException e)
+//                {
+//                    Log.e(TAG, "future in exp: " + e.getMessage());
+//                }
 
-        RxBus.getDefault().toObservableWithNoticeWithinTimeout(event_id, event_type, new Consumer() {
-                    @Override
-                    public void accept(Object o) throws Exception {
-                        Log.d(TAG, "accept next in timeout");
-                    }
-                },
-                new Consumer() {
-                    @Override
-                    public void accept(Object o) throws Exception {
-                        Log.e(TAG, "accept error timeout");
-                    }
-                },
-                3000,
-                TimeUnit.MILLISECONDS);
+//                Observable<String> observable = Observable.create(new ObservableOnSubscribe<String>() {
+//                    @Override
+//                    public void subscribe(ObservableEmitter<String> emitter) throws Exception {
+//                        emitter.onNext("string");
+//                        emitter.onComplete();
+//                    }
+//                });
+//                Future future1 = observable.toFuture();
+//                observable.subscribe();
+//                try {
+//                    Log.d(TAG, "future1: " + future1.get());
+//                }
+//                catch (ExecutionException e)
+//                {
+//                    Log.e(TAG, "future1 exp: " + e.getMessage());
+//                }
+//                catch (InterruptedException e)
+//                {
+//                    Log.e(TAG, "future1 in exp: " + e.getMessage());
+//                }
+
+                Object obj = RxBus.getDefault().toObservableWithBlocking(event_id, event_type, 4000);
+                Log.d(TAG, "obj " + (String)obj);
+//                RxBus.getDefault().toObservableWithBlocking(event_id, event_type, 2000);
+
+            }
+        }).start();
+//                .blockingSubscribe(new Consumer() {
+//                                                         @Override
+//                                                         public void accept(Object o) throws Exception {
+//                                                             Log.d(TAG, "blocking next in timeout");
+//                                                         }
+//                                                     },
+//                                new Consumer() {
+//                                    @Override
+//                                    public void accept(Object o) throws Exception {
+//                                        Log.e(TAG, "blocking error timeout");
+//                                    }
+//                                });
     }
 
     @Override
