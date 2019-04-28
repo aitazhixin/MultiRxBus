@@ -251,7 +251,7 @@ public class RxBus {
         }
     }
 
-    public <T>Observable<T> toObservableWithUIWithinTimeout(final Object eventId, Class<T> eventType, long timeinterval, TimeUnit unit){
+    public <T>Observable<T> toObservableWithUIWithinTimeout(final Object eventId, Class<T> eventType, long timeinterval){
         synchronized (eventBuffer){
             Observable<Event> observable = rxBusUI.ofType(Event.class);
             Log.d(TAG, "buffer length " + eventBuffer.size());
@@ -262,7 +262,7 @@ public class RxBus {
             {
                 return (Observable<T>)observable.observeOn(Schedulers.single())
                         .subscribeOn(Schedulers.single())
-                        .timeout(timeinterval, unit)
+                        .timeout(timeinterval, TimeUnit.MILLISECONDS)
                         .mergeWith(Observable.create(new ObservableOnSubscribe<Event>() {
                             @Override
                             public void subscribe(ObservableEmitter<Event> emitter) throws Exception {
@@ -282,7 +282,7 @@ public class RxBus {
             {
                 return observable.observeOn(Schedulers.single())
                         .subscribeOn(Schedulers.single())
-                        .timeout(timeinterval, unit)
+                        .timeout(timeinterval, TimeUnit.MILLISECONDS)
                         .filter(new Predicate<Event>() {
                             @Override
                             public boolean test(Event event) throws Exception {
@@ -310,7 +310,7 @@ public class RxBus {
     }
 
     public <T>Disposable toObservableWithUIWithinTimeout(final Object eventId, Class<T> eventType, final Consumer consumerNext /*onNext*/,
-                                            final Consumer consumerError /*onError*/, long timeinterval, TimeUnit unit)
+                                            final Consumer consumerError /*onError*/, long timeinterval)
     {
         synchronized (eventBuffer){
             Observable<Event> observable = rxBusUI.ofType(Event.class);
@@ -322,7 +322,7 @@ public class RxBus {
             {
                 return (Disposable)observable.observeOn(Schedulers.single())
                         .subscribeOn(Schedulers.single())
-                        .timeout(timeinterval, unit)
+                        .timeout(timeinterval, TimeUnit.MILLISECONDS)
                         .mergeWith(Observable.create(new ObservableOnSubscribe<Event>() {
                             @Override
                             public void subscribe(ObservableEmitter<Event> emitter) throws Exception {
@@ -343,7 +343,7 @@ public class RxBus {
             {
                 return observable.observeOn(Schedulers.single())
                         .subscribeOn(Schedulers.single())
-                        .timeout(timeinterval, unit)
+                        .timeout(timeinterval, TimeUnit.MILLISECONDS)
                         .filter(new Predicate<Event>() {
                             @Override
                             public boolean test(Event event) throws Exception {
@@ -443,12 +443,12 @@ public class RxBus {
                 .subscribe(consumerNext, consumerError);
     }
 
-    public <T>Observable<T> toObservableWithDataWithinTimeout(final Object eventId, Class<T> eventType, long timeinterval, TimeUnit unit)
+    public <T>Observable<T> toObservableWithDataWithinTimeout(final Object eventId, Class<T> eventType, long timeinterval)
     {
         return rxBusData.ofType(Event.class)
                 .subscribeOn(Schedulers.from(rxBusEs))
                 .observeOn(Schedulers.from(rxBusEs))
-                .timeout(timeinterval, unit)
+                .timeout(timeinterval, TimeUnit.MILLISECONDS)
                 .filter(new Predicate<Event>() {
                     @Override
                     public boolean test(Event event) throws Exception {
@@ -468,12 +468,12 @@ public class RxBus {
     }
 
     public <T>Disposable toObservableWithDataWithinTimeout(final Object eventId, Class<T> eventType, final Consumer consumerNext /*onNext*/,
-                                              final Consumer consumerError /*onError*/, long timeinterval, TimeUnit unit)
+                                              final Consumer consumerError /*onError*/, long timeinterval)
     {
         return rxBusData.ofType(Event.class)
                 .subscribeOn(Schedulers.from(rxBusEs))
                 .observeOn(Schedulers.from(rxBusEs))
-                .timeout(timeinterval, unit)
+                .timeout(timeinterval, TimeUnit.MILLISECONDS)
                 .filter(new Predicate<Event>() {
                     @Override
                     public boolean test(Event event) throws Exception {
@@ -567,12 +567,12 @@ public class RxBus {
                 .subscribe(consumerNext, consumerError);
     }
 
-    public <T>Observable<T> toObservableWithNoticeWithinTimeout(final Object eventId, Class<T> eventType, long timeinterval, TimeUnit unit)
+    public <T>Observable<T> toObservableWithNoticeWithinTimeout(final Object eventId, Class<T> eventType, long timeinterval)
     {
         return rxBusNotice.ofType(Event.class)
                 .observeOn(Schedulers.computation())
                 .subscribeOn(Schedulers.computation())
-                .timeout(timeinterval, unit)
+                .timeout(timeinterval, TimeUnit.MILLISECONDS)
                 .filter(new Predicate<Event>() {
                     @Override
                     public boolean test(Event event) throws Exception {
@@ -593,12 +593,12 @@ public class RxBus {
 
 
     public <T>Disposable toObservableWithNoticeWithinTimeout(final Object eventId, Class<T> eventType, final Consumer consumerNext /*onNext*/,
-                                                final Consumer consumerError /*onError*/, long timeinterval, TimeUnit unit)
+                                                final Consumer consumerError /*onError*/, long timeinterval)
     {
         return rxBusNotice.ofType(Event.class)
                 .observeOn(Schedulers.computation())
                 .subscribeOn(Schedulers.computation())
-                .timeout(timeinterval, unit)
+                .timeout(timeinterval, TimeUnit.MILLISECONDS)
                 .filter(new Predicate<Event>() {
                     @Override
                     public boolean test(Event event) throws Exception {
