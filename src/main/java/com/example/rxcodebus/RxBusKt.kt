@@ -4,17 +4,12 @@ import android.util.Log
 import io.reactivex.Observable
 import io.reactivex.ObservableOnSubscribe
 import io.reactivex.Observer
-import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.disposables.Disposable
 import io.reactivex.functions.Consumer
-import io.reactivex.observers.DisposableObserver
 import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.PublishSubject
 import io.reactivex.subjects.Subject
-import java.util.concurrent.ConcurrentLinkedDeque
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.*
 
 class RxBusKt private constructor() {
     private val TAG = "RxBUS"
@@ -180,7 +175,7 @@ class RxBusKt private constructor() {
     }
 
 
-    fun <T> toObservableWithUIWithinTimeout(eventId: Any, eventType: Class<T>, timeinterval: Long, unit: TimeUnit): Observable<T> {
+    fun <T> toObservableWithUIWithinTimeout(eventId: Any, eventType: Class<T>, timeinterval: Long): Observable<T> {
         synchronized(eventBuffer) {
             val observable = rxBusUI.ofType<Event>(Event::class.java!!)
             Log.d(TAG, "buffer length " + eventBuffer.size)
@@ -190,7 +185,7 @@ class RxBusKt private constructor() {
             return if (event_top != null) {
                 observable.observeOn(Schedulers.single())
                         .subscribeOn(Schedulers.single())
-                        .timeout(timeinterval, unit)
+                        .timeout(timeinterval, TimeUnit.MILLISECONDS)
                         .mergeWith(Observable.create(ObservableOnSubscribe<Event> { emitter -> emitter.onNext(event_top) })
                                 .filter { event ->
                                     val current = Thread.currentThread()
@@ -200,7 +195,7 @@ class RxBusKt private constructor() {
             } else {
                 observable.observeOn(Schedulers.single())
                         .subscribeOn(Schedulers.single())
-                        .timeout(timeinterval, unit)
+                        .timeout(timeinterval, TimeUnit.MILLISECONDS)
                         .filter { event ->
                             val current = Thread.currentThread()
                             Log.d(TAG, "normal filter: thread name " + current.name)
@@ -221,7 +216,7 @@ class RxBusKt private constructor() {
         }
     }
 
-    fun <T> toObservableWithUIWithinTimeout(eventId: Any, eventType: Class<T>, consumerNext: Consumer<T>, consumerError: Consumer<Throwable>, timeinterval: Long, unit: TimeUnit): Disposable {
+    fun <T> toObservableWithUIWithinTimeout(eventId: Any, eventType: Class<T>, consumerNext: Consumer<T>, consumerError: Consumer<Throwable>, timeinterval: Long): Disposable {
         synchronized(eventBuffer) {
             val observable = rxBusUI.ofType<Event>(Event::class.java!!)
             Log.d(TAG, "buffer length " + eventBuffer.size)
@@ -231,7 +226,7 @@ class RxBusKt private constructor() {
             return if (event_top != null) {
                 observable.observeOn(Schedulers.single())
                         .subscribeOn(Schedulers.single())
-                        .timeout(timeinterval, unit)
+                        .timeout(timeinterval, TimeUnit.MILLISECONDS)
                         .mergeWith(Observable.create(ObservableOnSubscribe<Event> { emitter -> emitter.onNext(event_top) })
                                 .filter { event ->
                                     val current = Thread.currentThread()
@@ -243,7 +238,7 @@ class RxBusKt private constructor() {
             } else {
                 observable.observeOn(Schedulers.single())
                         .subscribeOn(Schedulers.single())
-                        .timeout(timeinterval, unit)
+                        .timeout(timeinterval, TimeUnit.MILLISECONDS)
                         .filter { event ->
                             val current = Thread.currentThread()
                             Log.d(TAG, "normal filter: thread name " + current.name)
@@ -315,11 +310,11 @@ class RxBusKt private constructor() {
                 .subscribe(consumerNext, consumerError)
     }
 
-    fun <T> toObservableWithDataWithinTimeout(eventId: Any, eventType: Class<T>, timeinterval: Long, unit: TimeUnit): Observable<T> {
+    fun <T> toObservableWithDataWithinTimeout(eventId: Any, eventType: Class<T>, timeinterval: Long): Observable<T> {
         return rxBusData.ofType<Event>(Event::class.java!!)
                 .subscribeOn(Schedulers.from(rxBusEs))
                 .observeOn(Schedulers.from(rxBusEs))
-                .timeout(timeinterval, unit)
+                .timeout(timeinterval, TimeUnit.MILLISECONDS)
                 .filter { event ->
                     val current = Thread.currentThread()
                     Log.d(TAG, "filter: thread name " + current.name)
@@ -332,11 +327,11 @@ class RxBusKt private constructor() {
                 .cast(eventType)
     }
 
-    fun <T> toObservableWithDataWithinTimeout(eventId: Any, eventType: Class<T>, consumerNext: Consumer<T>, consumerError: Consumer<Throwable>, timeinterval: Long, unit: TimeUnit): Disposable {
+    fun <T> toObservableWithDataWithinTimeout(eventId: Any, eventType: Class<T>, consumerNext: Consumer<T>, consumerError: Consumer<Throwable>, timeinterval: Long): Disposable {
         return rxBusData.ofType<Event>(Event::class.java)
                 .subscribeOn(Schedulers.from(rxBusEs))
                 .observeOn(Schedulers.from(rxBusEs))
-                .timeout(timeinterval, unit)
+                .timeout(timeinterval, TimeUnit.MILLISECONDS)
                 .filter { event ->
                     val current = Thread.currentThread()
                     Log.d(TAG, "filter: thread name " + current.name)
@@ -402,11 +397,11 @@ class RxBusKt private constructor() {
                 .subscribe(consumerNext, consumerError)
     }
 
-    fun <T> toObservableWithNoticeWithinTimeout(eventId: Any, eventType: Class<T>, timeinterval: Long, unit: TimeUnit): Observable<T> {
+    fun <T> toObservableWithNoticeWithinTimeout(eventId: Any, eventType: Class<T>, timeinterval: Long): Observable<T> {
         return rxBusNotice.ofType<Event>(Event::class.java!!)
                 .observeOn(Schedulers.computation())
                 .subscribeOn(Schedulers.computation())
-                .timeout(timeinterval, unit)
+                .timeout(timeinterval, TimeUnit.MILLISECONDS)
                 .filter { event ->
                     val current = Thread.currentThread()
                     Log.d(TAG, "filter: thread name " + current.name)
@@ -420,11 +415,11 @@ class RxBusKt private constructor() {
     }
 
 
-    fun <T> toObservableWithNoticeWithinTimeout(eventId: Any, eventType: Class<T>, consumerNext: Consumer<T>, consumerError: Consumer<Throwable>, timeinterval: Long, unit: TimeUnit): Disposable {
+    fun <T> toObservableWithNoticeWithinTimeout(eventId: Any, eventType: Class<T>, consumerNext: Consumer<T>, consumerError: Consumer<Throwable>, timeinterval: Long): Disposable {
         return rxBusNotice.ofType<Event>(Event::class.java!!)
                 .observeOn(Schedulers.computation())
                 .subscribeOn(Schedulers.computation())
-                .timeout(timeinterval, unit)
+                .timeout(timeinterval, TimeUnit.MILLISECONDS)
                 .filter { event ->
                     val current = Thread.currentThread()
                     Log.d(TAG, "filter: thread name " + current.name)
@@ -436,6 +431,67 @@ class RxBusKt private constructor() {
                 }
                 .cast(eventType)
                 .subscribe(consumerNext, consumerError)
+    }
+
+    internal inner class DisposeObserver : Disposable {
+        private var disposable: Disposable? = null
+
+        fun setDisposable(disp: Disposable) {
+            this.disposable = disp
+        }
+
+        override fun dispose() {
+            disposable!!.dispose()
+        }
+
+        override fun isDisposed(): Boolean {
+            return disposable!!.isDisposed
+        }
+    }
+
+    fun <T> toObservableWithBlocking(eventId: Any, eventType: Class<T>, timeinterval: Long): T? {
+        val queue = LinkedBlockingQueue<Any>()
+        val dispObserver = DisposeObserver()
+        rxBusNotice.ofType(Event::class.java)
+                .observeOn(Schedulers.computation())
+                .subscribeOn(Schedulers.computation())
+                .timeout(timeinterval, TimeUnit.MILLISECONDS)
+                .filter { event ->
+                    val current = Thread.currentThread()
+                    Log.d(TAG, "filter: thread name " + current.name + " event id " + eventId + " event " + event.event_id)
+                    event.event_id === eventId
+                }
+                .map { event ->
+                    Log.d(TAG, "map: thread name " + Thread.currentThread().name)
+                    event.message
+                }
+                .cast(eventType)
+                .subscribeWith<Observer<T>>(object : Observer<T> {
+                    override fun onSubscribe(d: Disposable) {
+                        dispObserver.setDisposable(d)
+                    }
+
+                    override fun onNext(t: T) {
+                        queue.offer(t)
+                    }
+
+                    override fun onError(e: Throwable) {
+                        queue.offer("error")
+                        Log.e(TAG, "queue offer error")
+                    }
+
+                    override fun onComplete() {}
+                })
+
+        try {
+            val ret = queue.take() as T
+            dispObserver.dispose()
+            return if ("error" == ret) null else ret
+        } catch (e: Exception) {
+            Log.e(TAG, "queue exp")
+        }
+
+        return null
     }
 
 

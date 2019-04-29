@@ -59,7 +59,7 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                RxBus.getDefault().post((byte)0x01, s.toString());
+                RxBus.getDefault().broadNotice((byte)0x01, s.toString());
             }
 
             @Override
@@ -417,10 +417,18 @@ public class MainActivity extends AppCompatActivity implements RxSubscription {
 //                    Log.e(TAG, "future1 in exp: " + e.getMessage());
 //                }
 
-                Object obj = RxBus.getDefault().toObservableWithBlocking(event_id, event_type, 4000);
+                Object obj = RxBus.getDefault().toObservableWithBlocking((byte)0x01, event_type, 4000);
                 Log.d(TAG, "obj " + (String)obj);
 //                RxBus.getDefault().toObservableWithBlocking(event_id, event_type, 2000);
 
+            }
+        }).start();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+
+                Object obj = RxBus.getDefault().toObservableWithBlocking((byte)0x02, event_type, 4000);
+                Log.d(TAG, "obj " + (String)obj);
             }
         }).start();
 //                .blockingSubscribe(new Consumer() {

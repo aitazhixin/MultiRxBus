@@ -13,7 +13,6 @@ import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
 import io.reactivex.ObservableOnSubscribe;
 import io.reactivex.Observer;
-import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
@@ -192,7 +191,7 @@ public class RxBus {
     }
 
     public <T>Disposable toObservableWithUI(final Object eventId, Class<T> eventType, final Consumer consumerNext /*onNext*/,
-                                            final Consumer consumerError /*onError*/)
+                                            final Consumer<Throwable> consumerError /*onError*/)
     {
         synchronized (eventBuffer){
             Observable<Event> observable = rxBusUI.ofType(Event.class);
@@ -310,7 +309,7 @@ public class RxBus {
     }
 
     public <T>Disposable toObservableWithUIWithinTimeout(final Object eventId, Class<T> eventType, final Consumer consumerNext /*onNext*/,
-                                            final Consumer consumerError /*onError*/, long timeinterval)
+                                            final Consumer<Throwable> consumerError /*onError*/, long timeinterval)
     {
         synchronized (eventBuffer){
             Observable<Event> observable = rxBusUI.ofType(Event.class);
@@ -419,7 +418,7 @@ public class RxBus {
     }
 
     public <T>Disposable toObservableWithData(final Object eventId, Class<T> eventType, final Consumer consumerNext /*onNext*/,
-                                              final Consumer consumerError /*onError*/)
+                                              final Consumer<Throwable> consumerError /*onError*/)
     {
         return rxBusData.ofType(Event.class)
                 .subscribeOn(Schedulers.from(rxBusEs))
@@ -468,7 +467,7 @@ public class RxBus {
     }
 
     public <T>Disposable toObservableWithDataWithinTimeout(final Object eventId, Class<T> eventType, final Consumer consumerNext /*onNext*/,
-                                              final Consumer consumerError /*onError*/, long timeinterval)
+                                              final Consumer<Throwable> consumerError /*onError*/, long timeinterval)
     {
         return rxBusData.ofType(Event.class)
                 .subscribeOn(Schedulers.from(rxBusEs))
@@ -543,7 +542,7 @@ public class RxBus {
 
 
     public <T>Disposable toObservableWithNotice(final Object eventId, Class<T> eventType, final Consumer consumerNext /*onNext*/,
-                                                final Consumer consumerError /*onError*/)
+                                                final Consumer<Throwable> consumerError /*onError*/)
     {
         return rxBusNotice.ofType(Event.class)
                 .observeOn(Schedulers.computation())
@@ -593,7 +592,7 @@ public class RxBus {
 
 
     public <T>Disposable toObservableWithNoticeWithinTimeout(final Object eventId, Class<T> eventType, final Consumer consumerNext /*onNext*/,
-                                                final Consumer consumerError /*onError*/, long timeinterval)
+                                                final Consumer<Throwable> consumerError /*onError*/, long timeinterval)
     {
         return rxBusNotice.ofType(Event.class)
                 .observeOn(Schedulers.computation())
@@ -618,10 +617,28 @@ public class RxBus {
                 .subscribe(consumerNext, consumerError);
     }
 
-    CompositeDisposable compositeDisposable = new CompositeDisposable();
+    class DisposeObserver implements Disposable{
+        private Disposable disposable;
+
+        public void setDisposable(Disposable disp)
+        {
+            this.disposable = disp;
+        }
+
+        @Override
+        public void dispose() {
+            disposable.dispose();
+        }
+
+        @Override
+        public boolean isDisposed() {
+            return disposable.isDisposed();
+        }
+    }
     public <T> T toObservableWithBlocking(final Object eventId, Class<T> eventType, long timeinterval)
     {
         final BlockingQueue<Object> queue = new LinkedBlockingQueue<Object>();
+        final DisposeObserver dispObserver = new DisposeObserver();
         rxBusNotice.ofType(Event.class)
                 .observeOn(Schedulers.computation())
                 .subscribeOn(Schedulers.computation())
@@ -630,7 +647,7 @@ public class RxBus {
                     @Override
                     public boolean test(Event event) throws Exception {
                         Thread current = Thread.currentThread();
-                        Log.d(TAG, "filter: thread name " + current.getName());
+                        Log.d(TAG, "filter: thread name " + current.getName() + " event id " + eventId + " event " + event.event_id);
                         return event.event_id == eventId;
                     }
                 })
@@ -645,7 +662,7 @@ public class RxBus {
                 .subscribeWith(new Observer<T>(){
                     @Override
                     public void onSubscribe(Disposable d) {
-                        compositeDisposable.add(d);
+                        dispObserver.setDisposable(d);
                     }
 
                     @Override
@@ -666,7 +683,7 @@ public class RxBus {
 
         try {
             final T ret = (T) queue.take();
-            compositeDisposable.dispose();
+            dispObserver.dispose();
             if ("error".equals(ret))
                 return null;
             return ret;
